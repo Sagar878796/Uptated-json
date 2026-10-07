@@ -1,0 +1,185 @@
+name: Automated JSON + M3U Updater
+
+on:
+  schedule:
+    - cron: '*/7 * * * *'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Download JSON
+        run: |
+          curl -fL --retry 3 \
+            -o jstr4web.json \
+            "https://jjtvxweb.pages.dev/jstr4web.json"
+
+      - name: Validate JSON
+        run: |
+          python -m json.tool jstr4web.json > /dev/null
+          echo "JSON is valid"
+
+      - name: Generate M3U
+        run: |
+          python <<'PY'
+          import json
+
+          with open("jstr4web.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          output = ["#EXTM3U"]
+
+          def find_channels(obj):
+              if isinstance(obj, list):
+                  for item in obj:
+                      yield from find_channels(item)
+
+              elif isinstance(obj, dict):
+                  # Try common channel field names
+                  name = (
+                      obj.get("name")
+                      or obj.get("title")
+                      or obj.get("channel_name")
+                      or obj.get("channelName")
+                  )
+
+                  url = (
+                      obj.get("url")
+                      or obj.get("stream_url")
+                      or obj.get("streamUrl")
+                      or obj.get("m3u8")
+                      or obj.get("playurl")
+                      or obj.get("playUrl")
+                  )
+
+                  if name and url:
+                      logo = (
+                          obj.get("logo")
+                          or obj.get("logo_url")
+                          or obj.get("logoUrl")
+                          or ""
+                      )
+
+                      group = (
+                          obj.get("category")
+                          or obj.get("group")
+                          or obj.get("genre")
+                          or "Sports"
+                      )
+
+                      extinf = f'#EXTINF:-1 tvg-name="{name}"'
+
+                      if logo:
+                          extinf += f' tvg-logo="{logo}"'
+
+                      extinf += f' group-title="{group}",{name}'
+
+                      output.append(extinf)
+                      output.append(str(url))
+
+                  for value in obj.values():
+                      if isinstance(value, (dict, list)):
+                          yield from find_channels(value)
+
+          for name, url, logo, group in find_channels(data):
+              pass
+
+          # Re-process recursively and write directly
+          output = ["#EXTM3U"]
+
+          def process(obj):
+              if isinstance(obj, list):
+                  for item in obj:
+                      process(item)
+
+              elif isinstance(obj, dict):
+                  name = (
+                      obj.get("name")
+                      or obj.get("title")
+                      or obj.get("channel_name")
+                      or obj.get("channelName")
+                  )
+
+                  url = (
+                      obj.get("url")
+                      or obj.get("stream_url")
+                      or obj.get("streamUrl")
+                      or obj.get("m3u8")
+                      or obj.get("playurl")
+                      or obj.get("playUrl")
+                  )
+
+                  if name and url:
+                      logo = (
+                          obj.get("logo")
+                          or obj.get("logo_url")
+                          or obj.get("logoUrl")
+                          or ""
+                      )
+
+                      group = (
+                          obj.get("category")
+                          or obj.get("group")
+                          or obj.get("genre")
+                          or "Sports"
+                      )
+
+                      line = f'#EXTINF:-1 tvg-name="{name}"'
+
+                      if logo:
+                          line += f' tvg-logo="{logo}"'
+
+                      line += f' group-title="{group}",{name}'
+
+                      output.append(line)
+                      output.append(str(url))
+
+                  for value in obj.values():
+                      if isinstance(value, (dict, list)):
+                          process(value)
+
+          process(data)
+
+          with open("channels.m3u", "w", encoding="utf-8") as f:
+              f.write("\n".join(output) + "\n")
+
+          print(f"Generated {len(output) // 2} channels")
+          PY
+
+      - name: Show generated files
+        run: |
+          echo "===== JSON ====="
+          ls -lh jstr4web.json
+
+          echo "===== M3U ====="
+          ls -lh channels.m3u
+
+          echo "===== M3U Preview ====="
+          head -20 channels.m3u
+
+      - name: Commit and Push
+        run: |
+          export TZ="Asia/Kolkata"
+
+          git add jstr4web.json channels.m3u
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Update JSON and M3U [$(date +'%d-%m-%Y %H:%M')]"
+          git push origin main
