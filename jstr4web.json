@@ -7140,9 +7140,17 @@
         "id": "3277",
         "category": "Sports",
         "url": "https://jiotvpllive.cdn.jio.com/bpk-tv/Star_Sports_1_Tamil_HD_BTS/WDVLive/index.mpd",
-        "keyId": "2272c0bc6b2e5cb090b1f55996e0026c",
-        "key": "943923934de1d5536ab01c67fca8b337",
-        "logo": "https://img.media.jio.com/tvpimages/19/19/302122_1749662923298_l_medium.jpg"
+        "logo": "https://img.media.jio.com/tvpimages/19/19/302122_1749662923298_l_medium.jpg",
+        "keys": [
+            {
+                "keyId": "439d31fa05525a99b856e852d035023b",
+                "key": "83728b98188b1fa8bf69509e1796fb27"
+            },
+            {
+                "keyId": "1e9099af7f025ad6b3fd363bb2db8faf",
+                "key": "c45a762695c40f6675b8b56ac50e97a5"
+            }
+        ]
     },
     {
         "name": "Star Sports 1 Tamil",
